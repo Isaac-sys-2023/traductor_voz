@@ -1,123 +1,3 @@
-// import 'package:flutter/material.dart';
-// import 'package:speech_to_text/speech_to_text.dart' as stt;
-// import 'package:permission_handler/permission_handler.dart';
-
-// class HomeScreen extends StatefulWidget {
-//   const HomeScreen({super.key});
-
-//   @override
-//   State<HomeScreen> createState() => _HomeScreenState();
-// }
-
-// class _HomeScreenState extends State<HomeScreen> {
-//   late stt.SpeechToText _speech;
-//   bool _isListening = false;
-//   String _texto = 'Presiona y mantén el micrófono para hablar';
-//   bool _speechAvailable = false;
-//   bool _permissionGranted = false;
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     _speech = stt.SpeechToText();
-//     _initSpeech();
-//   }
-
-//   Future<void> _initSpeech() async {
-//     // Verificar disponibilidad del servicio de reconocimiento de voz
-//     _speechAvailable = await _speech.initialize(
-//       onStatus: (status) => print('Estado: $status'),
-//       onError: (error) => print('Error: ${error.errorMsg}'),
-//     );
-
-//     if (!_speechAvailable) {
-//       setState(() {
-//         _texto =
-//             'El reconocimiento de voz no está disponible en este dispositivo';
-//       });
-//     }
-//   }
-
-//   Future<void> _toggleListening() async {
-//     if (!_speechAvailable) return;
-
-//     // Pedir permiso la primera vez
-//     if (!_permissionGranted) {
-//       final status = await Permission.microphone.request();
-//       if (!status.isGranted) {
-//         setState(() {
-//           _texto = 'Se necesitan permisos de micrófono para continuar';
-//         });
-//         return;
-//       }
-//       _permissionGranted = true;
-//     }
-
-//     if (_isListening) {
-//       _stopListening();
-//     } else {
-//       _startListening();
-//     }
-//   }
-
-//   Future<void> _startListening() async {
-//     setState(() {
-//       _isListening = true;
-//       _texto = 'Escuchando...';
-//     });
-
-//     await _speech.listen(
-//       onResult: (result) {
-//         if (result.finalResult) {
-//           setState(() {
-//             _texto = result.recognizedWords.isEmpty
-//                 ? 'No se detectó voz'
-//                 : result.recognizedWords;
-//           });
-//         }
-//       },
-//       localeId: 'es-ES', // o 'es-BO' si prefieres español de Bolivia
-//       listenMode: stt.ListenMode.dictation,
-//       cancelOnError: true,
-//       partialResults: true,
-//       onSoundLevelChange: (level) {
-//         // Opcional: puedes usar esto para mostrar un indicador de nivel de sonido
-//       },
-//     );
-//   }
-
-//   void _stopListening() {
-//     _speech.stop();
-//     setState(() => _isListening = false);
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(title: const Text('Traductor Voz a Voz')),
-//       body: Center(
-//         child: Padding(
-//           padding: const EdgeInsets.all(20.0),
-//           child: Text(
-//             _texto,
-//             textAlign: TextAlign.center,
-//             style: const TextStyle(fontSize: 20),
-//           ),
-//         ),
-//       ),
-//       floatingActionButton: GestureDetector(
-//         onLongPressStart: (_) => _toggleListening(),
-//         onLongPressEnd: (_) => _stopListening(),
-//         child: FloatingActionButton(
-//           onPressed: null, // Deshabilitamos el press simple
-//           child: Icon(_isListening ? Icons.mic : Icons.mic_none, size: 30),
-//           backgroundColor: _isListening ? Colors.red : Colors.blue,
-//         ),
-//       ),
-//     );
-//   }
-// }
-
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
@@ -137,6 +17,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _speechAvailable = false;
   bool _permissionGranted = false;
   DateTime? _lastSpeechTime;
+
+  bool _isResetting = false;
 
   @override
   void initState() {
@@ -200,11 +82,24 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _isListening = false);
   }
 
+  // void _restartListening() async {
+  //   if (_isListening) {
+  //     _stopListening();
+  //     await Future.delayed(
+  //       Duration(milliseconds: 500),
+  //     ); //Minimo 300 para evitar errores
+  //     _startListening();
+  //   }
+  // }
   void _restartListening() async {
-    if (_isListening) {
-      _stopListening();
-      await Future.delayed(Duration(milliseconds: 500));
-      _startListening();
+    if (_isListening && !_isResetting) {
+      setState(() => _isResetting = true);
+      await _speech.stop();
+      await Future.delayed(Duration(milliseconds: 300));
+      if (mounted) {
+        await _startListening();
+        setState(() => _isResetting = false);
+      }
     }
   }
 
@@ -252,8 +147,14 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           FloatingActionButton(
             onPressed: _isListening ? _stopListening : _startListening,
-            child: Icon(_isListening ? Icons.stop : Icons.mic),
-            backgroundColor: _isListening ? Colors.red : Colors.green,
+            // child: Icon(_isListening ? Icons.stop : Icons.mic),
+            // backgroundColor: _isListening ? Colors.red : Colors.green,
+            child: Icon(
+              _isListening || _isResetting ? Icons.mic : Icons.mic_none,
+            ),
+            backgroundColor: _isListening || _isResetting
+                ? Colors.red
+                : Colors.green,
           ),
           SizedBox(height: 10),
           if (_isListening)
