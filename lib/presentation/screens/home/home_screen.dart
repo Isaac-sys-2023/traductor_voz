@@ -24,7 +24,8 @@ class _HomeScreenState extends State<HomeScreen> {
   DateTime? _lastSpeechTime;
   bool _isResetting = false;
   bool _isTranslating = false;
-  bool _shouldSpeakAfterStop = false; // Nueva variable de control
+  bool _shouldSpeakAfterStop = false;
+  bool _preventRestart = false;
 
   @override
   void initState() {
@@ -39,17 +40,15 @@ class _HomeScreenState extends State<HomeScreen> {
     _speechAvailable = await _speech.initialize(
       onStatus: (status) {
         print('Estado: $status');
-        //
-        if (status == 'done') {
+        if (status == 'done' && !_preventRestart) {
           _restartListening();
         }
-        //
       },
       onError: (error) {
         print('Error: ${error.errorMsg}');
-        //
-        _restartListening();
-        //
+        if (!_preventRestart) {
+          _restartListening();
+        }
       },
     );
   }
@@ -87,7 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _isListening = true;
       _currentText = 'Escuchando...';
-      _shouldSpeakAfterStop = true; // Habilitar reproducción al detener
+      _shouldSpeakAfterStop = true;
     });
 
     await _speech.listen(
@@ -98,7 +97,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
           if (result.finalResult) {
             _fullText += ' ${result.recognizedWords}';
-            // Solo traducir durante la grabación, no reproducir aún
             if (_isListening) {
               _translateText(_fullText, speak: false);
             }
@@ -128,7 +126,6 @@ class _HomeScreenState extends State<HomeScreen> {
         _isTranslating = false;
       });
 
-      // Reproducir solo si está permitido y no estamos grabando
       if (speak && !_isListening && _shouldSpeakAfterStop) {
         await _speakTranslatedText();
       }
@@ -142,15 +139,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _stopListening() async {
     if (!_isListening) return;
+    setState(() => _preventRestart = true);
 
     await _speech.stop();
-    setState(() => _isListening = false);
+    setState(() {
+      _isListening = false;
+      _preventRestart = false;
+    });
 
-    // Solo traducir y reproducir si hay texto y está permitido
     if (_fullText.isNotEmpty && _shouldSpeakAfterStop) {
       await _translateText(_fullText, speak: true);
     }
-    _shouldSpeakAfterStop = false; // Resetear el flag
+    _shouldSpeakAfterStop = false;
   }
 
   Future<void> _speakTranslatedText() async {
@@ -161,14 +161,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _restartListening() async {
-    if (_isListening && !_isResetting && !_isSpeaking) {
+    if (_isListening && !_isResetting && !_isSpeaking && !_preventRestart) {
       setState(() => _isResetting = true);
       await _speech.stop();
       await Future.delayed(Duration(milliseconds: 300));
-      if (mounted) {
+      if (mounted && !_preventRestart) {
         await _startListening();
-        setState(() => _isResetting = false);
       }
+      setState(() => _isResetting = false);
     }
   }
 
@@ -311,13 +311,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 _startListening();
               }
             },
-            child: Icon(
-              _isSpeaking
-                  ? Icons.volume_up
-                  : _isListening
-                  ? Icons.mic
-                  : Icons.mic_none,
-            ),
             backgroundColor: _isSpeaking
                 ? Colors.blue
                 : _isListening
@@ -328,13 +321,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 : _isListening
                 ? 'Detener escucha'
                 : 'Comenzar escucha',
+            child: Icon(
+              _isSpeaking
+                  ? Icons.volume_up
+                  : _isListening
+                  ? Icons.mic
+                  : Icons.mic_none,
+            ),
           ),
           SizedBox(height: 10),
           if (_isListening && !_isSpeaking)
             FloatingActionButton.small(
               onPressed: _restartListening,
-              child: Icon(Icons.refresh),
               backgroundColor: Colors.orange,
+              child: Icon(Icons.refresh),
             ),
         ],
       ),
