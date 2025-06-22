@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
-import 'package:translator/translator.dart'; // Paquete para traducción
+import 'package:translator/translator.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,7 +13,9 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late stt.SpeechToText _speech;
+  late FlutterTts _flutterTts;
   bool _isListening = false;
+  bool _isSpeaking = false;
   String _currentText = '';
   String _fullText = '';
   String _translatedText = '';
@@ -21,30 +24,57 @@ class _HomeScreenState extends State<HomeScreen> {
   DateTime? _lastSpeechTime;
   bool _isResetting = false;
   bool _isTranslating = false;
+  bool _shouldSpeakAfterStop = false; // Nueva variable de control
 
   @override
   void initState() {
     super.initState();
     _speech = stt.SpeechToText();
+    _flutterTts = FlutterTts();
     _initSpeech();
+    _initTts();
   }
 
   Future<void> _initSpeech() async {
     _speechAvailable = await _speech.initialize(
       onStatus: (status) {
         print('Estado: $status');
+        //
         if (status == 'done') {
           _restartListening();
         }
+        //
       },
       onError: (error) {
         print('Error: ${error.errorMsg}');
+        //
         _restartListening();
+        //
       },
     );
   }
 
+  Future<void> _initTts() async {
+    await _flutterTts.setLanguage('en-US');
+    await _flutterTts.setSpeechRate(0.5);
+    await _flutterTts.setVolume(1.0);
+    await _flutterTts.setPitch(1.0);
+
+    _flutterTts.setCompletionHandler(() {
+      setState(() => _isSpeaking = false);
+    });
+
+    _flutterTts.setErrorHandler((msg) {
+      setState(() {
+        _isSpeaking = false;
+        _translatedText = 'Error en reproducción: $msg';
+      });
+    });
+  }
+
   Future<void> _startListening() async {
+    if (_isSpeaking) return;
+
     if (!_permissionGranted) {
       final status = await Permission.microphone.request();
       if (!status.isGranted) {
@@ -57,6 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _isListening = true;
       _currentText = 'Escuchando...';
+      _shouldSpeakAfterStop = true; // Habilitar reproducción al detener
     });
 
     await _speech.listen(
@@ -67,7 +98,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
           if (result.finalResult) {
             _fullText += ' ${result.recognizedWords}';
-            _translateText(_fullText); // Traducir cuando hay resultado final
+            // Solo traducir durante la grabación, no reproducir aún
+            if (_isListening) {
+              _translateText(_fullText, speak: false);
+            }
           }
         });
       },
@@ -80,7 +114,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _translateText(String text) async {
+  Future<void> _translateText(String text, {bool speak = true}) async {
     if (text.trim().isEmpty) return;
 
     setState(() => _isTranslating = true);
@@ -93,6 +127,11 @@ class _HomeScreenState extends State<HomeScreen> {
         _translatedText = translation.text;
         _isTranslating = false;
       });
+
+      // Reproducir solo si está permitido y no estamos grabando
+      if (speak && !_isListening && _shouldSpeakAfterStop) {
+        await _speakTranslatedText();
+      }
     } catch (e) {
       setState(() {
         _translatedText = 'Error en la traducción: $e';
@@ -101,13 +140,28 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _stopListening() {
-    _speech.stop();
+  Future<void> _stopListening() async {
+    if (!_isListening) return;
+
+    await _speech.stop();
     setState(() => _isListening = false);
+
+    // Solo traducir y reproducir si hay texto y está permitido
+    if (_fullText.isNotEmpty && _shouldSpeakAfterStop) {
+      await _translateText(_fullText, speak: true);
+    }
+    _shouldSpeakAfterStop = false; // Resetear el flag
+  }
+
+  Future<void> _speakTranslatedText() async {
+    if (_translatedText.isEmpty || _isListening) return;
+
+    setState(() => _isSpeaking = true);
+    await _flutterTts.speak(_translatedText);
   }
 
   void _restartListening() async {
-    if (_isListening && !_isResetting) {
+    if (_isListening && !_isResetting && !_isSpeaking) {
       setState(() => _isResetting = true);
       await _speech.stop();
       await Future.delayed(Duration(milliseconds: 300));
@@ -123,14 +177,27 @@ class _HomeScreenState extends State<HomeScreen> {
       _currentText = '';
       _fullText = '';
       _translatedText = '';
+      _shouldSpeakAfterStop = false;
     });
+    _flutterTts.stop();
+    setState(() {
+      _isSpeaking = false;
+      _isListening = false;
+    });
+  }
+
+  @override
+  void dispose() {
+    _speech.stop();
+    _flutterTts.stop();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Traductor Voz a Texto - Español/Inglés'),
+        title: const Text('Traductor Voz a Voz - Español/Inglés'),
         actions: [
           IconButton(
             icon: Icon(Icons.clear),
@@ -141,7 +208,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Column(
         children: [
-          // Sección de texto original (español)
           Expanded(
             child: Container(
               padding: EdgeInsets.all(20),
@@ -179,8 +245,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-
-          // Sección de texto traducido (inglés)
           Expanded(
             child: Container(
               padding: EdgeInsets.all(20),
@@ -207,9 +271,26 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       ),
+                    if (_isSpeaking)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: Row(
+                          children: [
+                            Icon(Icons.volume_up, color: Colors.blue),
+                            SizedBox(width: 10),
+                            Text('Reproduciendo...'),
+                          ],
+                        ),
+                      ),
                     Text(
                       _translatedText,
-                      style: TextStyle(fontSize: 16, color: Colors.green[800]),
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.green[800],
+                        fontStyle: _isSpeaking
+                            ? FontStyle.italic
+                            : FontStyle.normal,
+                      ),
                     ),
                   ],
                 ),
@@ -222,16 +303,34 @@ class _HomeScreenState extends State<HomeScreen> {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           FloatingActionButton(
-            onPressed: _isListening ? _stopListening : _startListening,
+            onPressed: () {
+              if (_isSpeaking) return;
+              if (_isListening) {
+                _stopListening();
+              } else {
+                _startListening();
+              }
+            },
             child: Icon(
-              _isListening || _isResetting ? Icons.mic : Icons.mic_none,
+              _isSpeaking
+                  ? Icons.volume_up
+                  : _isListening
+                  ? Icons.mic
+                  : Icons.mic_none,
             ),
-            backgroundColor: _isListening || _isResetting
+            backgroundColor: _isSpeaking
+                ? Colors.blue
+                : _isListening
                 ? Colors.red
                 : Colors.green,
+            tooltip: _isSpeaking
+                ? 'Reproduciendo audio'
+                : _isListening
+                ? 'Detener escucha'
+                : 'Comenzar escucha',
           ),
           SizedBox(height: 10),
-          if (_isListening)
+          if (_isListening && !_isSpeaking)
             FloatingActionButton.small(
               onPressed: _restartListening,
               child: Icon(Icons.refresh),
