@@ -27,6 +27,26 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _shouldSpeakAfterStop = false;
   bool _preventRestart = false;
 
+  String _sourceLanguage = 'es';
+  String _targetLanguage = 'en';
+  final Map<String, String> _languageNames = {
+    'es': 'Español',
+    'en': 'Inglés',
+    'fr': 'Francés',
+    'de': 'Alemán',
+    'it': 'Italiano',
+    'pt': 'Portugués',
+  };
+
+  final Map<String, String> _ttsLanguages = {
+    'es': 'es-ES',
+    'en': 'en-US',
+    'fr': 'fr-FR',
+    'de': 'de-DE',
+    'it': 'it-IT',
+    'pt': 'pt-BR',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -71,6 +91,15 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void _swapLanguages() {
+    setState(() {
+      final temp = _sourceLanguage;
+      _sourceLanguage = _targetLanguage;
+      _targetLanguage = temp;
+    });
+    _clearText();
+  }
+
   Future<void> _startListening() async {
     if (_isSpeaking) return;
 
@@ -103,12 +132,14 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         });
       },
-      localeId: 'es-ES',
+      localeId: _sourceLanguage,
       listenFor: Duration(minutes: 1),
       pauseFor: Duration(seconds: 3),
-      partialResults: true,
-      cancelOnError: false,
-      listenMode: stt.ListenMode.dictation,
+      listenOptions: stt.SpeechListenOptions(
+        partialResults: true,
+        cancelOnError: false,
+        listenMode: stt.ListenMode.dictation,
+      ),
     );
   }
 
@@ -119,7 +150,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       final translator = GoogleTranslator();
-      var translation = await translator.translate(text, from: 'es', to: 'en');
+      var translation = await translator.translate(
+        text,
+        from: _sourceLanguage,
+        to: _targetLanguage,
+      );
 
       setState(() {
         _translatedText = translation.text;
@@ -155,6 +190,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _speakTranslatedText() async {
     if (_translatedText.isEmpty || _isListening) return;
+
+    final ttsLang = _ttsLanguages[_targetLanguage] ?? 'en-US';
+    await _flutterTts.setLanguage(ttsLang);
 
     setState(() => _isSpeaking = true);
     await _flutterTts.speak(_translatedText);
@@ -208,6 +246,75 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Column(
         children: [
+          // Selectores de idioma
+          Container(
+            padding: const EdgeInsets.all(8.0),
+            color: Colors.grey[200],
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                // Selector idioma origen
+                DropdownButton<String>(
+                  value: _sourceLanguage,
+                  icon: const Icon(Icons.arrow_downward),
+                  elevation: 16,
+                  style: const TextStyle(color: Colors.deepPurple),
+                  underline: Container(
+                    height: 2,
+                    color: Colors.deepPurpleAccent,
+                  ),
+                  onChanged: (String? newValue) {
+                    if (newValue != null) {
+                      setState(() => _sourceLanguage = newValue);
+                      _clearText();
+                    }
+                  },
+                  items: _languageNames.keys.map<DropdownMenuItem<String>>((
+                    String value,
+                  ) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(_languageNames[value]!),
+                    );
+                  }).toList(),
+                ),
+
+                // Botón para intercambiar idiomas
+                IconButton(
+                  icon: const Icon(Icons.swap_horiz),
+                  onPressed: _swapLanguages,
+                  tooltip: 'Intercambiar idiomas',
+                ),
+
+                // Selector idioma destino
+                DropdownButton<String>(
+                  value: _targetLanguage,
+                  icon: const Icon(Icons.arrow_downward),
+                  elevation: 16,
+                  style: const TextStyle(color: Colors.deepPurple),
+                  underline: Container(
+                    height: 2,
+                    color: Colors.deepPurpleAccent,
+                  ),
+                  onChanged: (String? newValue) {
+                    if (newValue != null) {
+                      setState(() => _targetLanguage = newValue);
+                      _clearText();
+                    }
+                  },
+                  items: _languageNames.keys.map<DropdownMenuItem<String>>((
+                    String value,
+                  ) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(_languageNames[value]!),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+
           Expanded(
             child: Container(
               padding: EdgeInsets.all(20),
@@ -219,7 +326,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Texto Original (Español):',
+                      'Texto Original (${_languageNames[_sourceLanguage]})',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -253,7 +360,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Traducción (Inglés):',
+                      'Traducción (${_languageNames[_targetLanguage]}):',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
