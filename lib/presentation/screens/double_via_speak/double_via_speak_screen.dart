@@ -49,6 +49,8 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
   // Turno actual (A o B)
   String _currentTurn = 'A';
 
+  String _buttonState = 'green'; // 'green', 'red', 'blue'
+
   // Historial de conversación
   final List<ConversationMessage> _conversationHistory = [];
 
@@ -100,11 +102,17 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
     await _flutterTts.setPitch(1.0);
 
     _flutterTts.setCompletionHandler(() {
-      setState(() => _isSpeaking = false);
+      setState(() {
+        _isSpeaking = false;
+        _buttonState = 'green'; // Vuelve a verde automáticamente
+      });
     });
 
     _flutterTts.setErrorHandler((msg) {
-      setState(() => _isSpeaking = false);
+      setState(() {
+        _isSpeaking = false;
+        _buttonState = 'green'; // Vuelve a verde en caso de error
+      });
     });
   }
 
@@ -118,7 +126,7 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
   }
 
   Future<void> _startListening() async {
-    if (_isSpeaking) return;
+    if (_buttonState != 'green') return;
 
     if (!_permissionGranted) {
       final status = await Permission.microphone.request();
@@ -130,27 +138,42 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
 
     setState(() {
       _isListening = true;
+      _buttonState = 'red';
       _currentText = 'Escuchando...';
     });
+
+    // Detener cualquier reconocimiento previo
+    await _speech.stop();
+    await Future.delayed(const Duration(milliseconds: 500));
 
     // Determinar idioma según el turno actual
     final listenLanguage = _currentTurn == 'A'
         ? _languageUserA
         : _languageUserB;
+    print('Configurando idioma para usuario $_currentTurn: $listenLanguage');
+
+    await _speech.initialize(
+      onStatus: (status) {
+        if (status == 'done' && !_preventRestart && _isListening) {
+          _restartListening();
+        }
+      },
+      onError: (error) {
+        if (!_preventRestart && _isListening) {
+          _restartListening();
+        }
+      },
+    );
 
     await _speech.listen(
       onResult: (result) async {
         setState(() {
           _currentText = result.recognizedWords;
-
-          if (result.finalResult) {
-            _processSpeech(result.recognizedWords);
-          }
         });
       },
       localeId: listenLanguage,
-      listenFor: const Duration(minutes: 1),
-      pauseFor: const Duration(seconds: 3),
+      listenFor: const Duration(minutes: 5),
+      pauseFor: const Duration(seconds: 10),
       listenOptions: stt.SpeechListenOptions(
         partialResults: true,
         cancelOnError: false,
@@ -160,7 +183,10 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
   }
 
   Future<void> _processSpeech(String text) async {
-    if (text.trim().isEmpty) return;
+    if (text.trim().isEmpty) {
+      setState(() => _buttonState = 'green');
+      return;
+    }
 
     setState(() => _isTranslating = true);
 
@@ -172,6 +198,7 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
           ? _languageUserA
           : _languageUserB;
       final toLanguage = _currentTurn == 'A' ? _languageUserB : _languageUserA;
+      print('Traduciendo de $fromLanguage a $toLanguage');
 
       var translation = await translator.translate(
         text,
@@ -201,7 +228,11 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
       // Cambiar turno
       setState(() => _currentTurn = _currentTurn == 'A' ? 'B' : 'A');
     } catch (e) {
-      setState(() => _isTranslating = false);
+      print('Error en traducción: $e');
+      setState(() {
+        _isTranslating = false;
+        _buttonState = 'green';
+      });
     }
   }
 
@@ -216,14 +247,22 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
   }
 
   Future<void> _stopListening() async {
-    if (!_isListening) return;
+    if (_buttonState != 'red') return;
 
-    setState(() => _preventRestart = true);
-    await _speech.stop();
     setState(() {
+      _buttonState = 'blue';
       _isListening = false;
       _preventRestart = false;
     });
+
+    await _speech.stop();
+
+    if (_currentText.isNotEmpty && _currentText != 'Escuchando...') {
+      await _processSpeech(_currentText);
+    } else {
+      // Si no hay texto, volver al estado verde
+      setState(() => _buttonState = 'green');
+    }
   }
 
   void _restartListening() async {
@@ -262,243 +301,260 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Traductor de Conversaciones'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.clear_all),
-            onPressed: _clearConversation,
-            tooltip: 'Limpiar conversación',
+    final bool isDisabled = _buttonState == 'blue';
+
+    return AbsorbPointer(
+      absorbing: isDisabled,
+      child: Opacity(
+        opacity: isDisabled ? 0.6 : 1.0,
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text('Traductor de Conversaciones'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.clear_all),
+                onPressed: _clearConversation,
+                tooltip: 'Limpiar conversación',
+              ),
+            ],
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Selectores de idioma
-          Container(
-            padding: const EdgeInsets.all(8.0),
-            color: Colors.grey[200],
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                // Idioma usuario A
-                Column(
+          body: Column(
+            children: [
+              // Selectores de idioma
+              Container(
+                padding: const EdgeInsets.all(8.0),
+                color: Colors.grey[200],
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    Text(
-                      'Usuario A',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: _currentTurn == 'A' ? Colors.blue : Colors.black,
-                      ),
+                    // Idioma usuario A
+                    Column(
+                      children: [
+                        Text(
+                          'Usuario A',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: _currentTurn == 'A'
+                                ? Colors.blue
+                                : Colors.black,
+                          ),
+                        ),
+                        DropdownButton<String>(
+                          value: _languageUserA,
+                          items: _languageNames.keys.map((value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(_languageNames[value]!),
+                            );
+                          }).toList(),
+                          onChanged: (newValue) {
+                            if (newValue != null) {
+                              setState(() => _languageUserA = newValue);
+                            }
+                          },
+                        ),
+                      ],
                     ),
-                    DropdownButton<String>(
-                      value: _languageUserA,
-                      items: _languageNames.keys.map((value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(_languageNames[value]!),
-                        );
-                      }).toList(),
-                      onChanged: (newValue) {
-                        if (newValue != null) {
-                          setState(() => _languageUserA = newValue);
-                        }
-                      },
+
+                    // Botón para intercambiar idiomas
+                    IconButton(
+                      icon: const Icon(Icons.swap_horiz),
+                      onPressed: _swapLanguages,
+                      tooltip: 'Intercambiar idiomas',
+                    ),
+
+                    // Idioma usuario B
+                    Column(
+                      children: [
+                        Text(
+                          'Usuario B',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: _currentTurn == 'B'
+                                ? Colors.blue
+                                : Colors.black,
+                          ),
+                        ),
+                        DropdownButton<String>(
+                          value: _languageUserB,
+                          items: _languageNames.keys.map((value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(_languageNames[value]!),
+                            );
+                          }).toList(),
+                          onChanged: (newValue) {
+                            if (newValue != null) {
+                              setState(() => _languageUserB = newValue);
+                            }
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),
-
-                // Botón para intercambiar idiomas
-                IconButton(
-                  icon: const Icon(Icons.swap_horiz),
-                  onPressed: _swapLanguages,
-                  tooltip: 'Intercambiar idiomas',
-                ),
-
-                // Idioma usuario B
-                Column(
-                  children: [
-                    Text(
-                      'Usuario B',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: _currentTurn == 'B' ? Colors.blue : Colors.black,
-                      ),
-                    ),
-                    DropdownButton<String>(
-                      value: _languageUserB,
-                      items: _languageNames.keys.map((value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(_languageNames[value]!),
-                        );
-                      }).toList(),
-                      onChanged: (newValue) {
-                        if (newValue != null) {
-                          setState(() => _languageUserB = newValue);
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          // Indicador de turno actual
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            color: _currentTurn == 'A' ? Colors.blue[50] : Colors.green[50],
-            child: Center(
-              child: Text(
-                _currentTurn == 'A'
-                    ? 'Turno: Usuario A (${_languageNames[_languageUserA]})'
-                    : 'Turno: Usuario B (${_languageNames[_languageUserB]})',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
               ),
-            ),
-          ),
 
-          // Texto actual (parcial)
-          if (_isListening)
-            Container(
-              padding: const EdgeInsets.all(12),
-              color: Colors.amber[50],
-              child: Row(
-                children: [
-                  const Icon(Icons.mic, color: Colors.red),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      _currentText,
-                      style: const TextStyle(fontSize: 16),
+              // Indicador de turno actual
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                color: _currentTurn == 'A' ? Colors.blue[50] : Colors.green[50],
+                child: Center(
+                  child: Text(
+                    _currentTurn == 'A'
+                        ? 'Turno: Usuario A (${_languageNames[_languageUserA]})'
+                        : 'Turno: Usuario B (${_languageNames[_languageUserB]})',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
 
-          // Historial de conversación
-          Expanded(
-            child: ListView.builder(
-              reverse: true,
-              itemCount: _conversationHistory.length,
-              itemBuilder: (context, index) {
-                final message = _conversationHistory.reversed.toList()[index];
-                final isUserA = message.speaker == 'A';
-
-                return Container(
-                  margin: const EdgeInsets.symmetric(
-                    vertical: 4,
-                    horizontal: 8,
-                  ),
+              // Texto actual (parcial)
+              if (_isListening)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  color: Colors.amber[50],
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Mensaje original
+                      const Icon(Icons.mic, color: Colors.red),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: isUserA
-                                    ? Colors.blue[50]
-                                    : Colors.green[50],
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Usuario ${message.speaker} (${_languageNames[message.originalLanguage]})',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(message.originalText),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            // Mensaje traducido
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[100],
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey[300]!),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Traducción (${_languageNames[message.translatedLanguage]})',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Text(message.translatedText),
-                                      ],
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.volume_up),
-                                    onPressed: () => _repeatMessage(message),
-                                    tooltip: 'Repetir audio',
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          _currentText,
+                          style: const TextStyle(fontSize: 16),
                         ),
                       ),
                     ],
                   ),
-                );
-              },
-            ),
+                ),
+
+              // Historial de conversación
+              Expanded(
+                child: ListView.builder(
+                  reverse: true,
+                  itemCount: _conversationHistory.length,
+                  itemBuilder: (context, index) {
+                    final message = _conversationHistory.reversed
+                        .toList()[index];
+                    final isUserA = message.speaker == 'A';
+
+                    return Container(
+                      margin: const EdgeInsets.symmetric(
+                        vertical: 4,
+                        horizontal: 8,
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Mensaje original
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: isUserA
+                                        ? Colors.blue[50]
+                                        : Colors.green[50],
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Usuario ${message.speaker} (${_languageNames[message.originalLanguage]})',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(message.originalText),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                // Mensaje traducido
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[100],
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.grey[300]!,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Traducción (${_languageNames[message.translatedLanguage]})',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Text(message.translatedText),
+                                          ],
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.volume_up),
+                                        onPressed: () =>
+                                            _repeatMessage(message),
+                                        tooltip: 'Repetir audio',
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          if (_isSpeaking) return;
-          if (_isListening) {
-            _stopListening();
-          } else {
-            _startListening();
-          }
-        },
-        backgroundColor: _isSpeaking
-            ? Colors.grey
-            : _isListening
-            ? Colors.red
-            : _currentTurn == 'A'
-            ? Colors.blue
-            : Colors.green,
-        tooltip: _isSpeaking
-            ? 'Reproduciendo audio'
-            : _isListening
-            ? 'Detener escucha'
-            : 'Comenzar escucha',
-        child: Icon(
-          _isSpeaking
-              ? Icons.volume_up
-              : _isListening
-              ? Icons.mic
-              : Icons.mic_none,
+          floatingActionButton: Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              FloatingActionButton(
+                onPressed: () {
+                  if (_buttonState == 'green') {
+                    _startListening();
+                  } else if (_buttonState == 'red') {
+                    _stopListening();
+                  }
+                  // En azul no responde
+                },
+                backgroundColor: _buttonState == 'red'
+                    ? Colors.red
+                    : _buttonState == 'blue'
+                    ? Colors.blue
+                    : _currentTurn == 'A'
+                    ? Colors.blue
+                    : Colors.green,
+                child: Icon(
+                  _buttonState == 'red'
+                      ? Icons.mic
+                      : _buttonState == 'blue'
+                      ? Icons.volume_up
+                      : Icons.mic_none,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
