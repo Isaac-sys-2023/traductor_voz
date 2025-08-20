@@ -1,16 +1,48 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // Crear usuario con email y password
-  Future<User?> registerWithEmail(String email, String password) async {
+  // Future<User?> registerWithEmail(String email, String password) async {
+  //   try {
+  //     UserCredential result = await _auth.createUserWithEmailAndPassword(
+  //       email: email,
+  //       password: password,
+  //     );
+  //     return result.user;
+  //   } catch (e) {
+  //     print("Error al registrar: $e");
+  //     return null;
+  //   }
+  // }
+  Future<User?> registerWithEmail(
+    String email,
+    String password,
+    String name,
+    String language,
+  ) async {
     try {
       UserCredential result = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-      return result.user;
+
+      User? user = result.user;
+
+      if (user != null) {
+        await _firestore.collection('usuarios').doc(user.uid).set({
+          'nombre': name,
+          'email': email,
+          'idioma': language,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      return user;
     } catch (e) {
       print("Error al registrar: $e");
       return null;
@@ -18,17 +50,40 @@ class AuthService {
   }
 
   // Iniciar sesión con email y password
-  Future<User?> loginWithEmail(String email, String password) async {
+  // Future<User?> loginWithEmail(String email, String password) async {
+  //   try {
+  //     UserCredential result = await _auth.signInWithEmailAndPassword(
+  //       email: email,
+  //       password: password,
+  //     );
+  //     return result.user;
+  //   } catch (e) {
+  //     print("Error al iniciar sesión: $e");
+  //     return null;
+  //   }
+  // }
+  Future<Map<String, dynamic>?> loginWithEmailAndGetData(
+    String email,
+    String password,
+  ) async {
     try {
       UserCredential result = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-      return result.user;
+      User? user = result.user;
+
+      if (user != null) {
+        DocumentSnapshot doc = await _firestore
+            .collection('usuarios')
+            .doc(user.uid)
+            .get();
+        return {'user': user, 'idioma': doc['idioma'], 'nombre': doc['nombre']};
+      }
     } catch (e) {
       print("Error al iniciar sesión: $e");
-      return null;
     }
+    return null;
   }
 
   // Cerrar sesión

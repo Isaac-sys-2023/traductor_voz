@@ -4,6 +4,7 @@ import 'package:permission_handler/permission_handler.dart';
 // import 'package:translator/translator.dart';
 import 'package:translator_plus/translator_plus.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import '../../../core/local_storage.dart';
 
 // Modelo para almacenar cada mensaje de la conversación
 class ConversationMessage {
@@ -80,6 +81,15 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
     _flutterTts = FlutterTts();
     _initSpeech();
     _initTts();
+    _loadLanguage();
+  }
+
+  Future<void> _loadLanguage() async {
+    final lang = await LocalStorage.getLanguage();
+    setState(() {
+      _languageUserA = lang ?? 'es';
+      _languageUserB = lang == 'en' ? 'es' : 'en'; // Idioma por defecto
+    });
   }
 
   Future<void> _initSpeech() async {

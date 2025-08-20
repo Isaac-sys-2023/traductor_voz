@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/auth_service.dart';
 import '../register/register_screen.dart';
+import '../../../core/local_storage.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -18,6 +19,26 @@ class _LoginScreenState extends State<LoginScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _login() async {
+    final data = await _authService.loginWithEmailAndGetData(
+      _emailController.text.trim(),
+      _passwordController.text.trim(),
+    );
+
+    if (data != null) {
+      await LocalStorage.saveLanguage(data['idioma']);
+      _showMessage("Bienvenido ${data['nombre']} (Idioma: ${data['idioma']})");
+
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(
+        context,
+        '/main',
+      ); // Ir a pantalla principal
+    } else {
+      _showMessage("Error al iniciar sesión");
+    }
   }
 
   @override
@@ -40,16 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: () async {
-                try {
-                  await _authService.loginWithEmail(
-                    _emailController.text.trim(),
-                    _passwordController.text.trim(),
-                  );
-                } catch (e) {
-                  _showMessage("Error al iniciar sesión");
-                }
-              },
+              onPressed: _login,
               child: const Text("Iniciar Sesión"),
             ),
             TextButton(

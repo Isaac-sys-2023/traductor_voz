@@ -4,6 +4,7 @@ import 'package:permission_handler/permission_handler.dart';
 // import 'package:translator/translator.dart';
 import 'package:translator_plus/translator_plus.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import '../../../core/local_storage.dart';
 
 class UniViaSpeakScreen extends StatefulWidget {
   const UniViaSpeakScreen({super.key});
@@ -55,6 +56,15 @@ class _UniViaSpeakScreenState extends State<UniViaSpeakScreen> {
     _flutterTts = FlutterTts();
     _initSpeech();
     _initTts();
+    _loadLanguage();
+  }
+
+  Future<void> _loadLanguage() async {
+    final lang = await LocalStorage.getLanguage();
+    setState(() {
+      _sourceLanguage = lang ?? 'es';
+      _targetLanguage = lang == 'en' ? 'es' : 'en'; // Idioma por defecto
+    });
   }
 
   Future<void> _initSpeech() async {
