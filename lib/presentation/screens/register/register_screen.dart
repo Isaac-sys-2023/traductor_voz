@@ -1,15 +1,15 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../../core/auth_service.dart';
-import '../register/register_screen.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final AuthService _authService = AuthService();
@@ -23,7 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Login Firebase")),
+      appBar: AppBar(title: const Text("Registro Firebase")),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -42,24 +42,29 @@ class _LoginScreenState extends State<LoginScreen> {
             ElevatedButton(
               onPressed: () async {
                 try {
-                  await _authService.loginWithEmail(
+                  await _authService.registerWithEmail(
                     _emailController.text.trim(),
                     _passwordController.text.trim(),
                   );
-                } catch (e) {
-                  _showMessage("Error al iniciar sesión");
+                  _showMessage(
+                    "Registro exitoso. Ahora puedes iniciar sesión.",
+                  );
+                  Navigator.pop(context); // Vuelve a LoginScreen
+                } on FirebaseAuthException catch (e) {
+                  if (e.code == 'email-already-in-use') {
+                    _showMessage("Este correo ya está registrado.");
+                  } else if (e.code == 'weak-password') {
+                    _showMessage("La contraseña es muy débil.");
+                  } else {
+                    _showMessage("Error: ${e.message}");
+                  }
                 }
               },
-              child: const Text("Iniciar Sesión"),
+              child: const Text("Registrar"),
             ),
             TextButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                );
-              },
-              child: const Text("¿No tienes cuenta? Regístrate"),
+              onPressed: () => Navigator.pop(context),
+              child: const Text("¿Ya tienes cuenta? Inicia sesión"),
             ),
           ],
         ),
