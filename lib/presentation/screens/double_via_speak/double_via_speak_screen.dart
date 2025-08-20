@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
-import 'package:translator/translator.dart';
+// import 'package:translator/translator.dart';
+import 'package:translator_plus/translator_plus.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
 // Modelo para almacenar cada mensaje de la conversación
