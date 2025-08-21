@@ -32,6 +32,7 @@ class MyApp extends StatelessWidget {
       title: 'Traductor Voz a Voz',
       home: const AuthWrapper(),
       routes: {
+        '/home': (context) => const AuthWrapper(),
         '/doubleVia': (context) => DoubleViaSpeakScreen(),
         '/uniVia': (context) => UniViaSpeakScreen(),
       },

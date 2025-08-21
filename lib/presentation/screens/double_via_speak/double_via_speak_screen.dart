@@ -5,25 +5,30 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:translator_plus/translator_plus.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../../../core/local_storage.dart';
+import '../../../core/conversation_service.dart';
+
+// import './domain/conversation_message.dart';
+import 'package:traductor_voz/presentation/screens/double_via_speak/domain/conversation_message.dart';
+import '../../../app/app.dart';
 
 // Modelo para almacenar cada mensaje de la conversación
-class ConversationMessage {
-  final String speaker;
-  final String originalText;
-  final String translatedText;
-  final String originalLanguage;
-  final String translatedLanguage;
-  final DateTime timestamp;
+// class ConversationMessage {
+//   final String speaker;
+//   final String originalText;
+//   final String translatedText;
+//   final String originalLanguage;
+//   final String translatedLanguage;
+//   final DateTime timestamp;
 
-  ConversationMessage({
-    required this.speaker,
-    required this.originalText,
-    required this.translatedText,
-    required this.originalLanguage,
-    required this.translatedLanguage,
-    required this.timestamp,
-  });
-}
+//   ConversationMessage({
+//     required this.speaker,
+//     required this.originalText,
+//     required this.translatedText,
+//     required this.originalLanguage,
+//     required this.translatedLanguage,
+//     required this.timestamp,
+//   });
+// }
 
 class DoubleViaSpeakScreen extends StatefulWidget {
   const DoubleViaSpeakScreen({super.key});
@@ -73,6 +78,8 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
     'it': 'it-IT',
     'pt': 'pt-BR',
   };
+
+  final ConversationService _conversationService = ConversationService();
 
   @override
   void initState() {
@@ -303,6 +310,151 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
     await _flutterTts.speak(message.translatedText);
   }
 
+  // Future<void> _saveConversation() async {
+  //   final titleController = TextEditingController();
+
+  //   await showDialog(
+  //     context: context,
+  //     builder: (context) {
+  //       return AlertDialog(
+  //         title: const Text('Guardar Conversación'),
+  //         content: TextField(
+  //           controller: titleController,
+  //           decoration: const InputDecoration(
+  //             labelText: 'Título de la conversación',
+  //           ),
+  //         ),
+  //         actions: [
+  //           TextButton(
+  //             onPressed: () => Navigator.pop(context),
+  //             child: const Text('Cancelar'),
+  //           ),
+  //           TextButton(
+  //             onPressed: () async {
+  //               final title = titleController.text.trim();
+  //               if (title.isEmpty) {
+  //                 // Mostrar error
+  //                 ScaffoldMessenger.of(context).showSnackBar(
+  //                   const SnackBar(content: Text('Debe ingresar un título')),
+  //                 );
+  //                 return;
+  //               }
+
+  //               Navigator.pop(context);
+
+  //               await _saveConversationToFirestore(title);
+
+  //               // Vaciar lista de mensajes
+  //               _conversationHistory.clear();
+
+  //               Future.delayed(Duration.zero, () {
+  //                 if (!mounted) return;
+  //                 Navigator.pushReplacement(
+  //                   context,
+  //                   MaterialPageRoute(builder: (_) => const AuthWrapper()),
+  //                 );
+  //               });
+  //             },
+  //             child: const Text('Guardar'),
+  //           ),
+  //         ],
+  //       );
+  //     },
+  //   );
+  // }
+  Future<void> _saveConversation() async {
+    final titleController = TextEditingController();
+    final scaffoldContext = context; // Contexto seguro del State
+
+    // Mostrar diálogo para ingresar título
+    final result = await showDialog<String>(
+      context: scaffoldContext,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Guardar Conversación'),
+          content: TextField(
+            controller: titleController,
+            decoration: const InputDecoration(
+              labelText: 'Título de la conversación',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext); // Cerrar diálogo
+                titleController.dispose();
+              },
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () {
+                final title = titleController.text.trim();
+                if (title.isEmpty) {
+                  ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+                    const SnackBar(content: Text('Debe ingresar un título')),
+                  );
+                  return;
+                }
+                Navigator.pop(dialogContext, title); // Retornar el título
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    // Si se canceló o no se ingresó título, no hacer nada
+    if (result == null || result.isEmpty) return;
+
+    // Guardar conversación en Firestore
+    try {
+      await _saveConversationToFirestore(result);
+
+      // Vaciar lista de mensajes
+      if (!mounted) return;
+      setState(() => _conversationHistory.clear());
+
+      // Mostrar confirmación
+      ScaffoldMessenger.of(
+        scaffoldContext,
+      ).showSnackBar(const SnackBar(content: Text('Conversación guardada')));
+
+      // Navegar a AuthWrapper
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        scaffoldContext,
+        MaterialPageRoute(builder: (_) => const AuthWrapper()),
+      );
+    } catch (e) {
+      print('Error al guardar: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+        const SnackBar(content: Text('Error al guardar la conversación')),
+      );
+    } finally {
+      titleController.dispose();
+    }
+  }
+
+  Future<void> _saveConversationToFirestore(String title) async {
+    try {
+      await _conversationService.saveConversation(
+        title: title,
+        messages: _conversationHistory,
+      );
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Conversación guardada')));
+    } catch (e) {
+      print('Error al guardar: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error al guardar la conversación')),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _speech.stop();
@@ -322,6 +474,14 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
           appBar: AppBar(
             title: const Text('Traductor de Conversaciones'),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.save),
+                onPressed: _conversationHistory.isEmpty
+                    ? null
+                    : _saveConversation,
+                tooltip: 'Guardar conversación',
+              ),
+
               IconButton(
                 icon: const Icon(Icons.clear_all),
                 onPressed: _clearConversation,
