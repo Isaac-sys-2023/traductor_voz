@@ -30,7 +30,7 @@ class ConversationService {
         )
         .toList();
 
-    await _db.collection('users').doc(uid).collection('conversations').add({
+    await _db.collection('usuarios').doc(uid).collection('conversaciones').add({
       'title': title,
       'timestamp': FieldValue.serverTimestamp(),
       'messages': messagesList,

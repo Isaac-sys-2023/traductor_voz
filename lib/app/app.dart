@@ -19,6 +19,8 @@ import 'package:traductor_voz/presentation/screens/home/home_screen.dart';
 import 'package:traductor_voz/presentation/screens/double_via_speak/double_via_speak_screen.dart';
 import 'package:traductor_voz/presentation/screens/uni_via_speak/uni_via_speak_screen.dart';
 
+import 'package:traductor_voz/presentation/screens/historial/historial_screen.dart';
+
 import '../core/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../presentation/screens/login/login_screen.dart';
@@ -35,6 +37,7 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const AuthWrapper(),
         '/doubleVia': (context) => DoubleViaSpeakScreen(),
         '/uniVia': (context) => UniViaSpeakScreen(),
+        '/historial': (context) => const HistorialScreen(),
       },
     );
   }

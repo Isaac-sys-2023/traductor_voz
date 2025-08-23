@@ -44,6 +44,15 @@ class _HomeScreenState extends State<HomeScreen> {
               child: const Text('Ir a Uni Via Speak Screen'),
             ),
           ),
+          const SizedBox(height: 20),
+          Center(
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/historial');
+              },
+              child: const Text('Ir a Historial Screen'),
+            ),
+          ),
         ],
       ),
     );
