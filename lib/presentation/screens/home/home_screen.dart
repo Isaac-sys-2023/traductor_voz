@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/auth_service.dart';
 
+import '../../../components/custom_buttons.dart';
+
 class HomeScreen extends StatefulWidget {
   final User user;
   const HomeScreen({super.key, required this.user});
@@ -24,36 +26,45 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Center(
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/doubleVia');
-              },
-              child: const Text('Ir a Double Via Speak Screen'),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Center(
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/doubleVia');
+                },
+                child: const Text('Ir a Double Via Speak Screen'),
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
-          Center(
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/uniVia');
-              },
-              child: const Text('Ir a Uni Via Speak Screen'),
+            const SizedBox(height: 20),
+            Center(
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/uniVia');
+                },
+                child: const Text('Ir a Uni Via Speak Screen'),
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
-          Center(
-            child: ElevatedButton(
+            const SizedBox(height: 20),
+            // Center(
+            //   child: ElevatedButton(
+            //     onPressed: () {
+            //       Navigator.pushNamed(context, '/historial');
+            //     },
+            //     child: const Text('Ir a Historial Screen'),
+            //   ),
+            // ),
+            AppButtons.blue(
+              text: 'Historial',
               onPressed: () {
                 Navigator.pushNamed(context, '/historial');
               },
-              child: const Text('Ir a Historial Screen'),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

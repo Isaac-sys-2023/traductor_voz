@@ -51,6 +51,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   intl: any
+  google_fonts: ^6.3.0
 
 dev_dependencies:
   flutter_test:
