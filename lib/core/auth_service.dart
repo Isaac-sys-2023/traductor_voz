@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:traductor_voz/data/local_database.dart';
+import 'package:traductor_voz/presentation/screens/historial/domain/conversation.dart';
 
 final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -78,6 +80,25 @@ class AuthService {
             .collection('usuarios')
             .doc(user.uid)
             .get();
+
+        try {
+          final snapshot = await _firestore
+              .collection('usuarios')
+              .doc(user.uid)
+              .collection('conversaciones')
+              .orderBy('timestamp', descending: true)
+              .limit(20)
+              .get();
+
+          for (var doc in snapshot.docs) {
+            final data = doc.data();
+            final conversacion = Conversacion.fromFirestore(data, doc.id);
+            await LocalDatabase.saveConversacion(conversacion);
+          }
+        } catch (e) {
+          print("Error sincronizando conversaciones offline: $e");
+        }
+
         return {'user': user, 'idioma': doc['idioma'], 'nombre': doc['nombre']};
       }
     } catch (e) {

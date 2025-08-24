@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:traductor_voz/presentation/screens/double_via_speak/domain/conversation_message.dart';
+import 'package:traductor_voz/widgets/auth_wrapper.dart';
 import 'package:translator_plus/translator_plus.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:traductor_voz/core/local_storage.dart';
 import 'package:traductor_voz/providers/connectivity_provider.dart';
 import 'package:traductor_voz/components/no_connection.dart';
+import 'package:traductor_voz/core/conversation_service.dart';
 
 class UniViaSpeakScreen extends StatefulWidget {
   const UniViaSpeakScreen({super.key});
@@ -50,6 +53,9 @@ class _UniViaSpeakScreenState extends State<UniViaSpeakScreen> {
     'it': 'it-IT',
     'pt': 'pt-BR',
   };
+
+  final ConversationService _conversationService = ConversationService();
+  final List<ConversationMessage> _conversationHistory = [];
 
   @override
   void initState() {
@@ -237,6 +243,107 @@ class _UniViaSpeakScreenState extends State<UniViaSpeakScreen> {
     });
   }
 
+  Future<void> _saveConversation() async {
+    final titleController = TextEditingController();
+    final scaffoldContext = context; // Contexto seguro del State
+
+    // Mostrar diálogo para ingresar título
+    final result = await showDialog<String>(
+      context: scaffoldContext,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Guardar Conversación'),
+          content: TextField(
+            controller: titleController,
+            decoration: const InputDecoration(
+              labelText: 'Título de la conversación',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext); // Cerrar diálogo
+                titleController.dispose();
+                _conversationHistory.clear();
+              },
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () {
+                final title = titleController.text.trim();
+                if (title.isEmpty) {
+                  ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+                    const SnackBar(content: Text('Debe ingresar un título')),
+                  );
+                  return;
+                }
+                Navigator.pop(dialogContext, title); // Retornar el título
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    // Si se canceló o no se ingresó título, no hacer nada
+    if (result == null || result.isEmpty) return;
+
+    // Guardar conversación en Firestore
+    try {
+      await _saveConversationToFirestore(result);
+
+      // Vaciar lista de mensajes
+      if (!mounted) return;
+      setState(() {
+        _conversationHistory.clear();
+        _isTranslating = false;
+        _fullText = '';
+        _translatedText = '';
+        _currentText = '';
+      });
+
+      // Mostrar confirmación
+      ScaffoldMessenger.of(
+        scaffoldContext,
+      ).showSnackBar(const SnackBar(content: Text('Conversación guardada')));
+
+      // Navegar a AuthWrapper
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        scaffoldContext,
+        MaterialPageRoute(builder: (_) => const AuthWrapper()),
+      );
+    } catch (e) {
+      print('Error al guardar: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+        const SnackBar(content: Text('Error al guardar la conversación')),
+      );
+    } finally {
+      titleController.dispose();
+    }
+  }
+
+  Future<void> _saveConversationToFirestore(String title) async {
+    try {
+      await _conversationService.saveConversation(
+        title: title,
+        messages: _conversationHistory,
+        doubleVia: false,
+      );
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Conversación guardada')));
+    } catch (e) {
+      print('Error al guardar: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error al guardar la conversación')),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _speech.stop();
@@ -251,6 +358,34 @@ class _UniViaSpeakScreenState extends State<UniViaSpeakScreen> {
       appBar: AppBar(
         title: const Text('Traductor Voz a Voz - Español/Inglés'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: () {
+              if (_fullText.isEmpty ||
+                  _isListening == true ||
+                  _isSpeaking == true) {
+                return null;
+              } else {
+                // Crear nuevo mensaje en el historial
+                final newMessage = ConversationMessage(
+                  speaker: "Yo",
+                  originalText: _fullText,
+                  translatedText: _translatedText,
+                  originalLanguage: _sourceLanguage,
+                  translatedLanguage: _targetLanguage,
+                  timestamp: DateTime.now(),
+                );
+
+                setState(() {
+                  _conversationHistory.add(newMessage);
+                });
+
+                _saveConversation();
+              }
+            },
+            tooltip: 'Guardar conversación',
+          ),
+
           IconButton(
             icon: Icon(Icons.clear),
             onPressed: _clearText,

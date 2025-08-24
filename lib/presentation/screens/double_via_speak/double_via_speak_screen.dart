@@ -371,6 +371,7 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
       await _conversationService.saveConversation(
         title: title,
         messages: _conversationHistory,
+        doubleVia: true,
       );
 
       ScaffoldMessenger.of(

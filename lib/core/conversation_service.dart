@@ -9,6 +9,7 @@ class ConversationService {
 
   Future<void> saveConversation({
     required String title,
+    required bool doubleVia,
     required List<ConversationMessage> messages,
   }) async {
     final uid = _auth.currentUser?.uid;
@@ -34,6 +35,7 @@ class ConversationService {
       'title': title,
       'timestamp': FieldValue.serverTimestamp(),
       'messages': messagesList,
+      'double_via': doubleVia,
     });
   }
 }
