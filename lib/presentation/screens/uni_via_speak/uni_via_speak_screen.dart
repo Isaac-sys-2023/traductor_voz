@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
-// import 'package:translator/translator.dart';
 import 'package:translator_plus/translator_plus.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import '../../../core/local_storage.dart';
+import 'package:traductor_voz/core/local_storage.dart';
+import 'package:traductor_voz/providers/connectivity_provider.dart';
+import 'package:traductor_voz/components/no_connection.dart';
 
 class UniViaSpeakScreen extends StatefulWidget {
   const UniViaSpeakScreen({super.key});
@@ -244,6 +246,7 @@ class _UniViaSpeakScreenState extends State<UniViaSpeakScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isConnected = context.watch<ConnectivityProvider>().isConnected;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Traductor Voz a Voz - Español/Inglés'),
@@ -257,6 +260,7 @@ class _UniViaSpeakScreenState extends State<UniViaSpeakScreen> {
       ),
       body: Column(
         children: [
+          if (isConnected == false) SinConexion(),
           // Selectores de idioma
           Container(
             padding: const EdgeInsets.all(8.0),
@@ -417,6 +421,7 @@ class _UniViaSpeakScreenState extends State<UniViaSpeakScreen> {
           ),
         ],
       ),
+
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [

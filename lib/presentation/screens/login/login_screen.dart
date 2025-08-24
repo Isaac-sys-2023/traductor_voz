@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
-import '../../../core/auth_service.dart';
-import '../register/register_screen.dart';
-import '../../../core/local_storage.dart';
+import 'package:provider/provider.dart';
+import 'package:traductor_voz/core/auth_service.dart';
+import 'package:traductor_voz/presentation/screens/register/register_screen.dart';
+import 'package:traductor_voz/core/local_storage.dart';
+
+import 'package:traductor_voz/providers/connectivity_provider.dart';
+import 'package:traductor_voz/components/no_connection.dart';
+import 'package:traductor_voz/components/alert_modal.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,6 +24,29 @@ class _LoginScreenState extends State<LoginScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _mostrarDialogoSinInternet(BuildContext context) {
+    // showDialog(
+    //   context: context,
+    //   builder: (_) => AlertDialog(
+    //     title: Text("Sin conexión"),
+    //     content: Text("No puedes iniciar sesión sin internet."),
+    //     actions: [
+    //       TextButton(
+    //         onPressed: () => Navigator.pop(context),
+    //         child: Text("OK"),
+    //       ),
+    //     ],
+    //   ),
+    // );
+    ModalAlerta.mostrar(
+      context: context,
+      titulo: "Sin conexión",
+      contenido: "No puedes iniciar sesión sin internet.",
+      textoBoton: "OK",
+      icono: Icons.wifi_off,
+    );
   }
 
   Future<void> _login() async {
@@ -43,38 +71,68 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isConnected = context.watch<ConnectivityProvider>().isConnected;
+
     return Scaffold(
       appBar: AppBar(title: const Text("Login Firebase")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: "Email"),
+      body: Column(
+        children: [
+          if (isConnected == false)
+            // Container(
+            //   color: Colors.red,
+            //   width: double.infinity,
+            //   padding: const EdgeInsets.all(8),
+            //   child: Row(
+            //     mainAxisAlignment: MainAxisAlignment.center,
+            //     children: const [
+            //       Icon(Icons.wifi_off, color: Colors.white),
+            //       SizedBox(width: 8),
+            //       Text(
+            //         'Sin conexión',
+            //         style: TextStyle(color: Colors.white, fontSize: 16),
+            //       ),
+            //     ],
+            //   ),
+            // ),
+            SinConexion(),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                TextField(
+                  controller: _emailController,
+                  decoration: const InputDecoration(labelText: "Email"),
+                ),
+                TextField(
+                  controller: _passwordController,
+                  decoration: const InputDecoration(labelText: "Password"),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () {
+                    if (isConnected) {
+                      _login();
+                    } else {
+                      _mostrarDialogoSinInternet(context);
+                    }
+                  },
+                  child: const Text("Iniciar Sesión"),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                    );
+                  },
+                  child: const Text("¿No tienes cuenta? Regístrate"),
+                ),
+              ],
             ),
-            TextField(
-              controller: _passwordController,
-              decoration: const InputDecoration(labelText: "Password"),
-              obscureText: true,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _login,
-              child: const Text("Iniciar Sesión"),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                );
-              },
-              child: const Text("¿No tienes cuenta? Regístrate"),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

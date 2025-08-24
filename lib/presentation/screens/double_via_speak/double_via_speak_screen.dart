@@ -1,34 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
-// import 'package:translator/translator.dart';
+import 'package:traductor_voz/widgets/auth_wrapper.dart';
 import 'package:translator_plus/translator_plus.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../../../core/local_storage.dart';
 import '../../../core/conversation_service.dart';
-
-// import './domain/conversation_message.dart';
 import 'package:traductor_voz/presentation/screens/double_via_speak/domain/conversation_message.dart';
-import '../../../app/app.dart';
-
-// Modelo para almacenar cada mensaje de la conversación
-// class ConversationMessage {
-//   final String speaker;
-//   final String originalText;
-//   final String translatedText;
-//   final String originalLanguage;
-//   final String translatedLanguage;
-//   final DateTime timestamp;
-
-//   ConversationMessage({
-//     required this.speaker,
-//     required this.originalText,
-//     required this.translatedText,
-//     required this.originalLanguage,
-//     required this.translatedLanguage,
-//     required this.timestamp,
-//   });
-// }
+import 'package:provider/provider.dart';
+import 'package:traductor_voz/providers/connectivity_provider.dart';
+import 'package:traductor_voz/components/no_connection.dart';
 
 class DoubleViaSpeakScreen extends StatefulWidget {
   const DoubleViaSpeakScreen({super.key});
@@ -310,58 +291,6 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
     await _flutterTts.speak(message.translatedText);
   }
 
-  // Future<void> _saveConversation() async {
-  //   final titleController = TextEditingController();
-
-  //   await showDialog(
-  //     context: context,
-  //     builder: (context) {
-  //       return AlertDialog(
-  //         title: const Text('Guardar Conversación'),
-  //         content: TextField(
-  //           controller: titleController,
-  //           decoration: const InputDecoration(
-  //             labelText: 'Título de la conversación',
-  //           ),
-  //         ),
-  //         actions: [
-  //           TextButton(
-  //             onPressed: () => Navigator.pop(context),
-  //             child: const Text('Cancelar'),
-  //           ),
-  //           TextButton(
-  //             onPressed: () async {
-  //               final title = titleController.text.trim();
-  //               if (title.isEmpty) {
-  //                 // Mostrar error
-  //                 ScaffoldMessenger.of(context).showSnackBar(
-  //                   const SnackBar(content: Text('Debe ingresar un título')),
-  //                 );
-  //                 return;
-  //               }
-
-  //               Navigator.pop(context);
-
-  //               await _saveConversationToFirestore(title);
-
-  //               // Vaciar lista de mensajes
-  //               _conversationHistory.clear();
-
-  //               Future.delayed(Duration.zero, () {
-  //                 if (!mounted) return;
-  //                 Navigator.pushReplacement(
-  //                   context,
-  //                   MaterialPageRoute(builder: (_) => const AuthWrapper()),
-  //                 );
-  //               });
-  //             },
-  //             child: const Text('Guardar'),
-  //           ),
-  //         ],
-  //       );
-  //     },
-  //   );
-  // }
   Future<void> _saveConversation() async {
     final titleController = TextEditingController();
     final scaffoldContext = context; // Contexto seguro del State
@@ -465,6 +394,7 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
   @override
   Widget build(BuildContext context) {
     final bool isDisabled = _buttonState == 'blue';
+    final isConnected = context.watch<ConnectivityProvider>().isConnected;
 
     return AbsorbPointer(
       absorbing: isDisabled,
@@ -491,6 +421,7 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
           ),
           body: Column(
             children: [
+              if (isConnected == false) SinConexion(),
               // Selectores de idioma
               Container(
                 padding: const EdgeInsets.all(8.0),
