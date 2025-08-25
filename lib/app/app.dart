@@ -4,7 +4,6 @@ import 'package:traductor_voz/presentation/screens/uni_via_speak/uni_via_speak_s
 import 'package:traductor_voz/presentation/screens/historial/historial_screen.dart';
 import 'package:traductor_voz/widgets/auth_wrapper.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:traductor_voz/widgets/connectivity_wrapper.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -47,11 +46,6 @@ class MyApp extends StatelessWidget {
 
       home: const AuthWrapper(),
 
-      // builder: (context, child) {
-      //   return ConnectivityWrapper(
-      //     child: child!,
-      //   ); // envuelve todo el contenido visual
-      // },
       routes: {
         '/home': (context) => const AuthWrapper(),
         '/doubleVia': (context) => const DoubleViaSpeakScreen(),

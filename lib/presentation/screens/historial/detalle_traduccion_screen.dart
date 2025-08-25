@@ -1,37 +1,3 @@
-// import 'package:flutter/material.dart';
-// import 'package:traductor_voz/presentation/screens/historial/domain/conversation.dart';
-// import 'package:provider/provider.dart';
-// import 'package:traductor_voz/providers/connectivity_provider.dart';
-// import 'package:traductor_voz/components/no_connection.dart';
-
-// class DetalleConversacionScreen extends StatelessWidget {
-//   final Conversacion conversacion;
-//   const DetalleConversacionScreen({Key? key, required this.conversacion})
-//     : super(key: key);
-
-//   @override
-//   Widget build(BuildContext context) {
-//     final isConnected = context.watch<ConnectivityProvider>().isConnected;
-//     return Scaffold(
-//       appBar: AppBar(title: Text(conversacion.title)),
-//       body: Column(
-//         children: [
-//           if (isConnected == false) SinConexion(),
-//           Expanded(
-//             child: ListView.builder(
-//               padding: const EdgeInsets.all(8),
-//               itemCount: conversacion.messages.length,
-//               itemBuilder: (context, index) {
-//                 final msg = conversacion.messages[index];
-//                 return Align();
-//               },
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }
 import 'package:flutter/material.dart';
 import 'package:traductor_voz/presentation/screens/historial/domain/conversation.dart';
 import 'package:provider/provider.dart';

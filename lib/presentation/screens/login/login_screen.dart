@@ -27,19 +27,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _mostrarDialogoSinInternet(BuildContext context) {
-    // showDialog(
-    //   context: context,
-    //   builder: (_) => AlertDialog(
-    //     title: Text("Sin conexión"),
-    //     content: Text("No puedes iniciar sesión sin internet."),
-    //     actions: [
-    //       TextButton(
-    //         onPressed: () => Navigator.pop(context),
-    //         child: Text("OK"),
-    //       ),
-    //     ],
-    //   ),
-    // );
     ModalAlerta.mostrar(
       context: context,
       titulo: "Sin conexión",
@@ -77,24 +64,7 @@ class _LoginScreenState extends State<LoginScreen> {
       appBar: AppBar(title: const Text("Login Firebase")),
       body: Column(
         children: [
-          if (isConnected == false)
-            // Container(
-            //   color: Colors.red,
-            //   width: double.infinity,
-            //   padding: const EdgeInsets.all(8),
-            //   child: Row(
-            //     mainAxisAlignment: MainAxisAlignment.center,
-            //     children: const [
-            //       Icon(Icons.wifi_off, color: Colors.white),
-            //       SizedBox(width: 8),
-            //       Text(
-            //         'Sin conexión',
-            //         style: TextStyle(color: Colors.white, fontSize: 16),
-            //       ),
-            //     ],
-            //   ),
-            // ),
-            SinConexion(),
+          if (isConnected == false) SinConexion(),
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(

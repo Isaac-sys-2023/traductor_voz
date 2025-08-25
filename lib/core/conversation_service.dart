@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-// import '../presentation/screens/double_via_speak/domain/conversation_message.dart';
 import 'package:traductor_voz/presentation/screens/double_via_speak/domain/conversation_message.dart';
 
 class ConversationService {
