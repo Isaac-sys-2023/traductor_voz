@@ -23,7 +23,7 @@ class _UniViaSpeakScreenState extends State<UniViaSpeakScreen> {
   late FlutterTts _flutterTts;
   bool _isListening = false;
   bool _isSpeaking = false;
-  String _currentText = '';
+  String _currentText = 'Presiona el boton verde para hablar...';
   String _fullText = '';
   String _translatedText = '';
   bool _speechAvailable = false;
@@ -33,6 +33,8 @@ class _UniViaSpeakScreenState extends State<UniViaSpeakScreen> {
   bool _isTranslating = false;
   bool _shouldSpeakAfterStop = false;
   bool _preventRestart = false;
+  // Añade este controlador en tu estado
+  TextEditingController _fullTextController = TextEditingController();
 
   String _sourceLanguage = 'es';
   String _targetLanguage = 'en';
@@ -62,6 +64,7 @@ class _UniViaSpeakScreenState extends State<UniViaSpeakScreen> {
     super.initState();
     _speech = stt.SpeechToText();
     _flutterTts = FlutterTts();
+    _fullTextController = TextEditingController(); // Inicializa el controlador
     _initSpeech();
     _initTts();
     _loadLanguage();
@@ -145,6 +148,7 @@ class _UniViaSpeakScreenState extends State<UniViaSpeakScreen> {
 
           if (result.finalResult) {
             _fullText += ' ${result.recognizedWords}';
+            _fullTextController.text = _fullText; // Actualiza el controlador
             if (_isListening) {
               _translateText(_fullText, speak: false);
             }
@@ -203,6 +207,7 @@ class _UniViaSpeakScreenState extends State<UniViaSpeakScreen> {
 
     if (_fullText.isNotEmpty && _shouldSpeakAfterStop) {
       await _translateText(_fullText, speak: true);
+      _currentText = 'Presiona el boton verde para hablar...';
     }
     _shouldSpeakAfterStop = false;
   }
@@ -231,9 +236,11 @@ class _UniViaSpeakScreenState extends State<UniViaSpeakScreen> {
 
   void _clearText() {
     setState(() {
-      _currentText = '';
+      // _currentText = '';
+      _currentText = 'Presiona el boton verde para hablar...';
       _fullText = '';
       _translatedText = '';
+      _fullTextController.clear(); // Limpia el controlador
       _shouldSpeakAfterStop = false;
     });
     _flutterTts.stop();
@@ -299,8 +306,10 @@ class _UniViaSpeakScreenState extends State<UniViaSpeakScreen> {
         _conversationHistory.clear();
         _isTranslating = false;
         _fullText = '';
+        _fullTextController.clear(); // Limpia el controlador
         _translatedText = '';
-        _currentText = '';
+        // _currentText = '';
+        _currentText = 'Presiona el boton verde para hablar...';
       });
 
       // Mostrar confirmación
@@ -348,6 +357,7 @@ class _UniViaSpeakScreenState extends State<UniViaSpeakScreen> {
   void dispose() {
     _speech.stop();
     _flutterTts.stop();
+    _fullTextController.dispose();
     super.dispose();
   }
 
@@ -471,86 +481,221 @@ class _UniViaSpeakScreenState extends State<UniViaSpeakScreen> {
               decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: Colors.grey)),
               ),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Texto Original (${_languageNames[_sourceLanguage]})',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    SizedBox(height: 10),
-                    Text(
-                      _currentText,
-                      style: TextStyle(fontSize: 18, color: Colors.blue),
-                    ),
-                    SizedBox(height: 20),
-                    Text(_fullText, style: TextStyle(fontSize: 16)),
-                    if (_lastSpeechTime != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 10),
-                        child: Text(
-                          'Última actualización: ${_lastSpeechTime!.toLocal()}',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
+              // child: SingleChildScrollView(
+              //   child: Column(
+              //     crossAxisAlignment: CrossAxisAlignment.start,
+              //     children: [
+              //       Text(
+              //         'Texto Original (${_languageNames[_sourceLanguage]})',
+              //         style: TextStyle(
+              //           fontWeight: FontWeight.bold,
+              //           fontSize: 16,
+              //         ),
+              //       ),
+              //       SizedBox(height: 10),
+              //       Text(
+              //         _currentText,
+              //         style: TextStyle(fontSize: 18, color: Colors.blue),
+              //       ),
+              //       SizedBox(height: 20),
+              //       // Text(_fullText, style: TextStyle(fontSize: 16)),
+              //       TextField(
+              //         controller: _fullTextController,
+              //         maxLines: null, // Permite múltiples líneas
+              //         keyboardType: TextInputType.multiline,
+              //         decoration: InputDecoration(
+              //           border: OutlineInputBorder(),
+              //           hintText: 'El texto reconocido aparecerá aquí...',
+              //         ),
+              //         style: TextStyle(fontSize: 16),
+              //         onChanged: (value) {
+              //           setState(() {
+              //             _fullText =
+              //                 value; // Actualiza _fullText cuando el usuario edita
+              //           });
+              //         },
+              //       ),
+
+              //       SizedBox(height: 10),
+              //       ElevatedButton(
+              //         onPressed: () async {
+              //           await _translateText(_fullText, speak: false);
+              //           _speakTranslatedText();
+              //         },
+              //         style: ElevatedButton.styleFrom(
+              //           backgroundColor: Colors.blue,
+              //           foregroundColor: Colors.white,
+              //         ),
+              //         child: Text('Retraducir'),
+              //       ),
+
+              //       if (_lastSpeechTime != null)
+              //         Padding(
+              //           padding: const EdgeInsets.only(top: 10),
+              //           child: Text(
+              //             'Última actualización: ${_lastSpeechTime!.toLocal()}',
+              //             style: TextStyle(fontSize: 12, color: Colors.grey),
+              //           ),
+              //         ),
+              //     ],
+              //   ),
+              // ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Texto Original (${_languageNames[_sourceLanguage]})',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    _currentText,
+                    style: TextStyle(fontSize: 18, color: Colors.blue),
+                  ),
+                  SizedBox(height: 20),
+
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: TextField(
+                        controller: _fullTextController,
+                        maxLines: null, // Permite múltiples líneas
+                        keyboardType: TextInputType.multiline,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(),
+                          hintText: 'El texto reconocido aparecerá aquí...',
                         ),
+                        style: TextStyle(fontSize: 16),
+                        onChanged: (value) {
+                          setState(() {
+                            _fullText =
+                                value; // Actualiza _fullText cuando el usuario edita
+                          });
+                        },
                       ),
-                  ],
-                ),
+                    ),
+                  ),
+
+                  SizedBox(height: 10),
+                  ElevatedButton(
+                    onPressed: () async {
+                      await _translateText(_fullText, speak: false);
+                      _speakTranslatedText();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: Text('Retraducir'),
+                  ),
+
+                  if (_lastSpeechTime != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Text(
+                        'Última actualización: ${_lastSpeechTime!.toLocal()}',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
           Expanded(
             child: Container(
               padding: EdgeInsets.all(20),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Traducción (${_languageNames[_targetLanguage]}):',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+              // child: SingleChildScrollView(
+              //   child: Column(
+              //     crossAxisAlignment: CrossAxisAlignment.start,
+              //     children: [
+              //       Text(
+              //         'Traducción (${_languageNames[_targetLanguage]}):',
+              //         style: TextStyle(
+              //           fontWeight: FontWeight.bold,
+              //           fontSize: 16,
+              //         ),
+              //       ),
+              //       SizedBox(height: 10),
+              //       if (_isTranslating)
+              //         Padding(
+              //           padding: const EdgeInsets.symmetric(vertical: 10),
+              //           child: Row(
+              //             children: [
+              //               CircularProgressIndicator(),
+              //               SizedBox(width: 10),
+              //               Text('Traduciendo...'),
+              //             ],
+              //           ),
+              //         ),
+              //       if (_isSpeaking)
+              //         Padding(
+              //           padding: const EdgeInsets.symmetric(vertical: 10),
+              //           child: Row(
+              //             children: [
+              //               Icon(Icons.volume_up, color: Colors.blue),
+              //               SizedBox(width: 10),
+              //               Text('Reproduciendo...'),
+              //             ],
+              //           ),
+              //         ),
+              //       Text(
+              //         _translatedText,
+              //         style: TextStyle(
+              //           fontSize: 16,
+              //           color: Colors.green[800],
+              //           fontStyle: _isSpeaking
+              //               ? FontStyle.italic
+              //               : FontStyle.normal,
+              //         ),
+              //       ),
+              //     ],
+              //   ),
+              // ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Traducción (${_languageNames[_targetLanguage]}):',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  SizedBox(height: 10),
+                  if (_isTranslating)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Row(
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(width: 10),
+                          Text('Traduciendo...'),
+                        ],
                       ),
                     ),
-                    SizedBox(height: 10),
-                    if (_isTranslating)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        child: Row(
-                          children: [
-                            CircularProgressIndicator(),
-                            SizedBox(width: 10),
-                            Text('Traduciendo...'),
-                          ],
-                        ),
-                      ),
-                    if (_isSpeaking)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        child: Row(
-                          children: [
-                            Icon(Icons.volume_up, color: Colors.blue),
-                            SizedBox(width: 10),
-                            Text('Reproduciendo...'),
-                          ],
-                        ),
-                      ),
-                    Text(
-                      _translatedText,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.green[800],
-                        fontStyle: _isSpeaking
-                            ? FontStyle.italic
-                            : FontStyle.normal,
+                  if (_isSpeaking)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Row(
+                        children: [
+                          Icon(Icons.volume_up, color: Colors.blue),
+                          SizedBox(width: 10),
+                          Text('Reproduciendo...'),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Text(
+                        _translatedText,
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.green[800],
+                          fontStyle: _isSpeaking
+                              ? FontStyle.italic
+                              : FontStyle.normal,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
