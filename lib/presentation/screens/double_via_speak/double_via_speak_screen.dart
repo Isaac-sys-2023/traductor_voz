@@ -30,6 +30,8 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
   bool _isTranslating = false;
   bool _preventRestart = false;
 
+  TextEditingController _currentTextController = TextEditingController();
+
   // Idiomas para cada usuario
   String _languageUserA = 'es';
   String _languageUserB = 'en';
@@ -67,6 +69,7 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
     super.initState();
     _speech = stt.SpeechToText();
     _flutterTts = FlutterTts();
+    _currentTextController = TextEditingController();
     _initSpeech();
     _initTts();
     _loadLanguage();
@@ -138,7 +141,9 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
     setState(() {
       _isListening = true;
       _buttonState = 'red';
-      _currentText = 'Escuchando...';
+      // _currentText = 'Escuchando...';
+      _currentText = '';
+      _currentTextController.text = _currentText;
     });
 
     // Detener cualquier reconocimiento previo
@@ -168,6 +173,7 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
       onResult: (result) async {
         setState(() {
           _currentText = result.recognizedWords;
+          _currentTextController.text = _currentText;
         });
       },
       localeId: listenLanguage,
@@ -256,7 +262,7 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
 
     await _speech.stop();
 
-    if (_currentText.isNotEmpty && _currentText != 'Escuchando...') {
+    if (_currentText.isNotEmpty /*&& _currentText != 'Escuchando...'*/ ) {
       await _processSpeech(_currentText);
     } else {
       // Si no hay texto, volver al estado verde
@@ -389,6 +395,7 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
   void dispose() {
     _speech.stop();
     _flutterTts.stop();
+    _currentTextController.dispose();
     super.dispose();
   }
 
@@ -515,6 +522,24 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
                 ),
               ),
 
+              // // Texto actual (parcial)
+              // if (_isListening)
+              //   Container(
+              //     padding: const EdgeInsets.all(12),
+              //     color: Colors.amber[50],
+              //     child: Row(
+              //       children: [
+              //         const Icon(Icons.mic, color: Colors.red),
+              //         const SizedBox(width: 10),
+              //         Expanded(
+              //           child: Text(
+              //             _currentText,
+              //             style: const TextStyle(fontSize: 16),
+              //           ),
+              //         ),
+              //       ],
+              //     ),
+              //   ),
               // Texto actual (parcial)
               if (_isListening)
                 Container(
@@ -525,9 +550,27 @@ class _DoubleViaSpeakScreenState extends State<DoubleViaSpeakScreen> {
                       const Icon(Icons.mic, color: Colors.red),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: Text(
-                          _currentText,
-                          style: const TextStyle(fontSize: 16),
+                        // child: Text(
+                        //   _currentText,
+                        //   style: const TextStyle(fontSize: 16),
+                        // ),
+                        child: SingleChildScrollView(
+                          child: TextField(
+                            controller: _currentTextController,
+                            maxLines: null, // Permite múltiples líneas
+                            keyboardType: TextInputType.multiline,
+                            decoration: InputDecoration(
+                              border: OutlineInputBorder(),
+                              hintText: 'El texto reconocido aparecerá aquí...',
+                            ),
+                            style: TextStyle(fontSize: 16),
+                            onChanged: (value) {
+                              setState(() {
+                                _currentText =
+                                    value; // Actualiza _currentText cuando el usuario edita
+                              });
+                            },
+                          ),
                         ),
                       ),
                     ],
