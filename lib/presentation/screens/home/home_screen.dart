@@ -61,6 +61,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.pushNamed(context, '/historial');
                   },
                 ),
+                const SizedBox(height: 20),
+                Center(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/tts');
+                    },
+                    child: const Text('Ir a TTS Screen'),
+                  ),
+                ),
               ],
             ),
           ),
